@@ -1,0 +1,356 @@
+use crate::{Dep, ParseUposError, Token, TokenID, UPOS, Sentence};
+use std::{collections::HashMap, num::ParseIntError, str::FromStr, io::{BufRead, BufReader}, vec, fs::File};
+use thiserror::Error;
+
+
+#[derive(Error, PartialEq, Debug)]
+pub enum ParseIdError {
+    #[error("Range must be two integers separated by -")]
+    InvalidRange,
+    #[error("Could not parse {input:?} as integer.")]
+    FailedIntParsing {
+        input: String,
+        source: ParseIntError
+    },
+}
+
+#[derive(Error, Debug)]
+pub enum ParseErrorType {
+    #[error("Missing field: {0}")]
+    MissingField(&'static str),
+    #[error(transparent)]
+    FailedIdParse(#[from] ParseIdError),
+    #[error("Failed to parse field {field} as UPOS")]
+    FailedUposParse{
+        source: ParseUposError,
+        field: String
+    },
+    #[error("Key value pairs must be separated by `=`")]
+    KeyValueParseError,
+}
+
+#[derive(Error, Debug)]
+#[error("Parse error in line {line}: {err}")]
+pub struct ConlluParseError {
+    line: usize,
+    err: ParseErrorType
+}
+
+impl ConlluParseError {
+    fn adjust_line(&mut self, offset: usize) {
+        self.line += offset
+    }
+}
+
+pub fn parse_file(file: File) -> Doc<BufReader<File>> {
+    let reader = BufReader::new(file);
+
+    Doc::new(reader)
+}
+
+/// Parse a single line in CoNLL-U format into a [`Token`].
+/// ```
+/// use rs_conllu::{Token, TokenID, UPOS, parse_token};
+/// 
+/// let line = "6	Rust	Rust	NOUN	NN	_	3	nmod	_	_";
+/// 
+/// assert_eq!(parse_token(line).unwrap(), Token {
+///     id: TokenID::Single(6),
+///     form: "Rust".to_string(),
+///     lemma: Some("Rust".to_string()),
+///     upos: Some(UPOS::NOUN),
+///     xpos: Some("NN".to_string()),
+///     features: None,
+///     head: Some(TokenID::Single(3)),
+///     deprel: Some("nmod".to_string()),
+///     dep: None,
+///     misc: None
+/// });
+/// ```
+pub fn parse_token(line: &str) -> Result<Token, ParseErrorType> {
+    let mut fields_iter = line.split(|c| c == '\t');
+
+    let id = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("id"))?;
+    let id = parse_id(id)?;
+
+    let form = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("form"))?;
+    let form = String::from(form);
+
+    let lemma = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("lemma"))?;
+    let lemma = placeholder(lemma).map(String::from);
+
+    let upos = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("upos"))?;
+    let upos = placeholder_result(upos, str::parse::<UPOS>).transpose().map_err(|e| {
+        ParseErrorType::FailedUposParse { source: e, field: upos.to_string() }
+    })?;
+
+    let xpos = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("xpos"))?;
+    let xpos = placeholder(xpos).map(String::from);
+
+    let features = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("features"))?;
+    let features = placeholder_result(features, parse_key_value_pairs).transpose()?;
+
+    let head = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("head"))?;
+    let head = placeholder_result(head, parse_id).transpose()?;
+
+    let deprel = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("deprel"))?;
+    let deprel = placeholder(deprel).map(String::from);
+
+    let dep = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("deps"))?;
+    let dep = placeholder_result(dep, parse_deps).transpose()?;
+
+    let misc = fields_iter
+        .next()
+        .ok_or(ParseErrorType::MissingField("misc"))?;
+    let misc = placeholder(misc).map(String::from);
+
+    Ok(Token {
+        id,
+        form,
+        lemma,
+        upos,
+        xpos,
+        features,
+        head,
+        deprel,
+        dep,
+        misc,
+    })
+}
+
+fn parse_int(input: &str) -> Result<usize, ParseIdError> {
+    let parsed = usize::from_str(input).map_err(|e| ParseIdError::FailedIntParsing { input: input.to_string(), source: e})?; 
+    Ok(parsed)
+}
+
+fn parse_id(field: &str) -> Result<TokenID, ParseIdError> {
+    let sep = ['-', '.'].iter().find(|s| field.contains(**s));
+
+    if let Some(sep) = sep {
+        let ids: Vec<&str> = field.split(*sep).collect();
+
+        let ids = ids
+            .iter()
+            .map(|s| parse_int(s))
+            .collect::<Result<Vec<usize>, _>>();
+        
+        let ids = ids?;
+
+        if ids.len() != 2 {
+            return Err(ParseIdError::InvalidRange)
+        }
+
+        return match sep {
+            '-' => Ok(TokenID::Range(ids[0], ids[1])),
+            '.' => Ok(TokenID::Subordinate { major: ids[0], minor: ids[1] }),
+            _ => panic!()
+        }
+    }
+
+    Ok(TokenID::Single(parse_int(field)?))
+
+}
+
+fn parse_key_value_pairs(field: &str) -> Result<HashMap<String, String>, ParseErrorType> {
+    let kv_pairs: Vec<&str> = field.split('|').collect();
+    let features: Result<Vec<(&str, &str)>, _> = kv_pairs
+        .iter()
+        .map(|p| {
+            p.split_once('=')
+                .ok_or(ParseErrorType::KeyValueParseError)
+        })
+        .collect();
+
+    let features: HashMap<String, String> = features?
+        .iter()
+        .map(|t| (t.0.to_owned(), t.1.to_owned()))
+        .collect();
+
+    Ok(features)
+}
+
+fn parse_deps(field: &str) -> Result<Vec<Dep>, ParseErrorType> {
+    let kv_pairs: Vec<&str> = field.split('|').collect();
+    let deps: Result<Vec<(&str, &str)>, _> = kv_pairs
+        .iter()
+        .map(|p| {
+            p.split_once(':')
+                .ok_or(ParseErrorType::KeyValueParseError)
+        })
+        .collect();
+
+    let deps: Result<Vec<Dep>, ParseIdError> = deps?
+        .iter()
+        .map(|t| Ok(Dep {
+            head: parse_id(t.0)?,
+            rel: String::from(t.1),
+        }))
+        .collect();
+
+    Ok(deps?)
+}
+
+fn placeholder(field: &str) -> Option<&str> {
+    match field {
+        "_" => None,
+        _ => Some(field),
+    }
+}
+
+fn placeholder_result<O, F>(field: &str, f: F) -> Option<O>
+where
+    F: FnOnce(&str) -> O,
+{
+    match field {
+        "_" => None,
+        _ => Some(f(field)),
+    }
+}
+
+pub fn parse_sentence(input: &str) -> Result<Sentence, ConlluParseError> {
+    let mut meta = vec![];
+    let mut tokens = vec![];
+    for (i, line) in input.lines().enumerate() {
+        if line.starts_with('#') {
+            let comment = line[1..].trim_start();
+            meta.push(comment.to_string());
+            continue;
+        }
+        if line != "" {
+            let token = parse_token(line).map_err(|e| ConlluParseError {
+                err: e,
+                line: i
+            })?;
+            tokens.push(token);
+        }
+    }
+    Ok(Sentence {
+        meta,
+        tokens
+    })
+}
+
+pub struct Doc<T: BufRead> {
+    reader: T,
+    line_num: usize
+}
+
+impl<T: BufRead> Doc<T> {
+    pub fn new(reader: T) -> Self {
+        return Doc { reader, line_num: 0 };
+    }
+}
+
+impl<T: BufRead> Iterator for Doc<T> {
+    type Item = Result<Sentence, ConlluParseError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut buffer = String::new();
+        let mut num_lines_in_buffer = 0;
+
+        // try to read a line from the buffer
+        // if we read 0 bytes, we are at EOF and stop the iteration
+        // by returning None
+        let mut bytes = self.reader.read_line(&mut buffer).unwrap();
+        self.line_num += 1;
+        num_lines_in_buffer += 1;
+        if bytes == 0 {
+            return None;
+        }
+
+        // fill the buffer until we are at a sentence break
+        // or at the end of the file
+        // while !buffer.ends_with("\n\n") && bytes != 0 {
+        //     bytes = self.reader.read_line(&mut buffer).unwrap();
+        // }
+        loop {
+            bytes = self.reader.read_line(&mut buffer).unwrap();
+            self.line_num += 1;
+            num_lines_in_buffer += 1;
+            if buffer.ends_with("\n\n") {
+                break;
+            }
+            // at EOF, the buffer terminates with a single newline.
+            // To treat them equally with other sentences finishing in
+            // a double newline, add one here.
+            if bytes == 0 {
+                buffer.push('\n');
+                break;
+            }
+        }
+        Some(parse_sentence(&buffer).map_err(|mut e| {
+            e.adjust_line(self.line_num-num_lines_in_buffer+1);
+            return e;
+        }))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use crate::{Token, TokenID, UPOS};
+
+    use super::*;
+
+    #[test]
+    fn can_parse_single_id() {
+        assert_eq!(parse_id("5"), Ok(TokenID::Single(5)));
+    }
+
+    #[test]
+    fn can_parse_id_range() {
+        assert_eq!(parse_id("5-6"), Ok(TokenID::Range(5, 6)));
+    }
+
+    #[test]
+    fn can_parse_id_subordinate() {
+        assert_eq!(parse_id("5.6"), Ok(TokenID::Subordinate{major:5, minor:6}));
+    }
+
+    #[test]
+    fn test_token_parse() {
+        let line = "2	Ein	ein	DET	DT	Case=Nom|Definite=Ind|Gender=Masc|Number=Sing|Person=3	3	det	_	_";
+
+        let features = HashMap::from([
+            ("Case".to_string(), "Nom".to_string()),
+            ("Definite".to_string(), "Ind".to_string()),
+            ("Gender".to_string(), "Masc".to_string()),
+            ("Number".to_string(), "Sing".to_string()),
+            ("Person".to_string(), "3".to_string()),
+        ]);
+
+        let token = Token {
+            id: TokenID::Single(2),
+            form: "Ein".to_string(),
+            lemma: Some("ein".to_string()),
+            upos: Some(UPOS::DET),
+            xpos: Some("DT".to_string()),
+            features: Some(features),
+            head: Some(TokenID::Single(3)),
+            deprel: Some("det".to_string()),
+            dep: None,
+            misc: None,
+        };
+
+        assert_eq!(token, parse_token(line).unwrap());
+    }
+}
