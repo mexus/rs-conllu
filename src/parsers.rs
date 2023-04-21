@@ -229,12 +229,12 @@ pub fn parse_sentence(input: &str) -> Result<Sentence, ConlluParseError> {
     let mut meta = vec![];
     let mut tokens = vec![];
     for (i, line) in input.lines().enumerate() {
-        if line.starts_with('#') {
-            let comment = line[1..].trim_start();
+        if let Some(comment) = line.strip_prefix('#') {
+            let comment = comment.trim_start();
             meta.push(comment.to_string());
             continue;
         }
-        if line != "" {
+        if !line.is_empty() {
             let token = parse_token(line).map_err(|e| ConlluParseError {
                 err: e,
                 line: i
@@ -255,7 +255,7 @@ pub struct Doc<T: BufRead> {
 
 impl<T: BufRead> Doc<T> {
     pub fn new(reader: T) -> Self {
-        return Doc { reader, line_num: 0 };
+        Doc { reader, line_num: 0 }
     }
 }
 
@@ -298,7 +298,7 @@ impl<T: BufRead> Iterator for Doc<T> {
         }
         Some(parse_sentence(&buffer).map_err(|mut e| {
             e.adjust_line(self.line_num-num_lines_in_buffer+1);
-            return e;
+            e
         }))
     }
 }

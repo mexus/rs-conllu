@@ -39,7 +39,7 @@ pub struct Feature<'a>(&'a str, &'a str);
 #[derive(Debug)]
 pub struct ParseUposError;
 
-impl<'a> fmt::Display for ParseUposError {
+impl fmt::Display for ParseUposError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Error while parsing UPOS.")
     }
