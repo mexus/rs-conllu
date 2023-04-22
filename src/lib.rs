@@ -3,7 +3,8 @@
 //! ## Basic Usage
 //! 
 //! Parse a sentence in CoNNL-U format and iterate over the 
-//! containing [`Sentence`] elements.
+//! containing [`Token`] elements.
+//! Example taken from [CoNLL-U format description](https://universaldependencies.org/format.html).
 //! 
 //! ```
 //! use rs_conllu::{parse_sentence, TokenID};

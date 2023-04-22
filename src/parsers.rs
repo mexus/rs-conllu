@@ -225,6 +225,7 @@ where
     }
 }
 
+/// Parses a single sentence in ConLL-U format.
 pub fn parse_sentence(input: &str) -> Result<Sentence, ConlluParseError> {
     let mut meta = vec![];
     let mut tokens = vec![];

@@ -4,7 +4,7 @@ This project aims to provide a parser for the CoNLL-U format of the Universal De
 
 ## Basic Usage
 
-Parse a file in ConLL-U format and iterate over the containing sentences.
+Parse a file in CoNLL-U format and iterate over the containing sentences.
 
 ```rust
 let file = File::open("example.conllu").unwrap();
@@ -17,6 +17,11 @@ for sentence in doc {
     }
 }
 ```
+
+## Features
+
+- Tested on version 2.11 UD treebanks
+- Handles different types of token ids (single, range, suboordinate)
 
 ## Limitations
 
