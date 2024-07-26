@@ -50,7 +50,7 @@ impl Error for ParseUposError {}
 
 /// The set of Universal POS tags according
 /// to [UD version 2](https://universaldependencies.org/u/pos/index.html).
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UPOS {
     ADJ,
     ADP,
@@ -99,7 +99,7 @@ impl FromStr for UPOS {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenID {
     Single(usize),
     Range(usize, usize),
@@ -110,7 +110,7 @@ pub enum TokenID {
 
 type Features = HashMap<String, String>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub id: TokenID,
     pub form: String,
@@ -124,13 +124,13 @@ pub struct Token {
     pub misc: Option<String>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Dep {
     pub head: TokenID,
     pub rel: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sentence {
     pub meta: Vec<String>,
     pub tokens: Vec<Token>,
