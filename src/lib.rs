@@ -1,14 +1,14 @@
 //! A library for parsing the CoNNL-U format.
-//! 
+//!
 //! ## Basic Usage
-//! 
-//! Parse a sentence in CoNNL-U format and iterate over the 
+//!
+//! Parse a sentence in CoNNL-U format and iterate over the
 //! containing [`Token`] elements.
 //! Example taken from [CoNLL-U format description](https://universaldependencies.org/format.html).
-//! 
+//!
 //! ```
 //! use rs_conllu::{parse_sentence, TokenID};
-//! 
+//!
 //! let s = "# sent_id = 1
 //! ## text = They buy and sell books.
 //! 1	They	they	PRON	PRP	Case=Nom|Number=Plur	2	nsubj	2:nsubj|4:nsubj	_
@@ -18,24 +18,25 @@
 //! 6	books	book	NOUN	NNS	Number=Plur	2	obj	2:obj|4:obj	SpaceAfter=No
 //! 7	.	.	PUNCT	.	_	2	punct	2:punct	_
 //! ";
-//! 
+//!
 //! let sentence = parse_sentence(s).unwrap();
 //! let mut token_iter = sentence.into_iter();
-//! 
+//!
 //! assert_eq!(token_iter.next().unwrap().id, TokenID::Single(1));
 //! assert_eq!(token_iter.next().unwrap().form, "buy".to_owned());
-//! 
+//!
 //! ```
-//! 
+
+#![allow(clippy::tabs_in_doc_comments)]
 
 use std::{collections::HashMap, error::Error, fmt, str::FromStr};
 
 pub mod cli;
 pub mod parsers;
 
-pub use crate::parsers::{parse_file, parse_token, parse_sentence};
+pub use crate::parsers::{parse_file, parse_sentence, parse_token};
 
-pub struct Feature<'a>(&'a str, &'a str);
+pub struct Feature<'a>(pub &'a str, pub &'a str);
 
 #[derive(Debug)]
 pub struct ParseUposError;
@@ -103,9 +104,7 @@ impl FromStr for UPOS {
 pub enum TokenID {
     Single(usize),
     Range(usize, usize),
-    Subordinate{
-        major: usize, minor: usize
-    }
+    Subordinate { major: usize, minor: usize },
 }
 
 type Features = HashMap<String, String>;
@@ -141,6 +140,6 @@ impl IntoIterator for Sentence {
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.tokens.into_iter()  
+        self.tokens.into_iter()
     }
 }
