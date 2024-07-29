@@ -1,7 +1,13 @@
-use crate::{Dep, ParseUposError, Token, TokenID, UPOS, Sentence};
-use std::{collections::HashMap, num::ParseIntError, str::FromStr, io::{BufRead, BufReader}, vec, fs::File};
+use crate::{Dep, ParseUposError, Sentence, Token, TokenID, UPOS};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufRead, BufReader},
+    num::ParseIntError,
+    str::FromStr,
+    vec,
+};
 use thiserror::Error;
-
 
 #[derive(Error, PartialEq, Debug)]
 pub enum ParseIdError {
@@ -10,7 +16,7 @@ pub enum ParseIdError {
     #[error("Could not parse {input:?} as integer.")]
     FailedIntParsing {
         input: String,
-        source: ParseIntError
+        source: ParseIntError,
     },
 }
 
@@ -21,9 +27,9 @@ pub enum ParseErrorType {
     #[error(transparent)]
     FailedIdParse(#[from] ParseIdError),
     #[error("Failed to parse field {field} as UPOS")]
-    FailedUposParse{
+    FailedUposParse {
         source: ParseUposError,
-        field: String
+        field: String,
     },
     #[error("Key value pairs must be separated by `=`")]
     KeyValueParseError,
@@ -33,7 +39,7 @@ pub enum ParseErrorType {
 #[error("Parse error in line {line}: {err}")]
 pub struct ConlluParseError {
     line: usize,
-    err: ParseErrorType
+    err: ParseErrorType,
 }
 
 impl ConlluParseError {
@@ -51,9 +57,9 @@ pub fn parse_file(file: File) -> Doc<BufReader<File>> {
 /// Parse a single line in CoNLL-U format into a [`Token`].
 /// ```
 /// use rs_conllu::{Token, TokenID, UPOS, parse_token};
-/// 
+///
 /// let line = "6	Rust	Rust	NOUN	NN	_	3	nmod	_	_";
-/// 
+///
 /// assert_eq!(parse_token(line).unwrap(), Token {
 ///     id: TokenID::Single(6),
 ///     form: "Rust".to_string(),
@@ -88,9 +94,12 @@ pub fn parse_token(line: &str) -> Result<Token, ParseErrorType> {
     let upos = fields_iter
         .next()
         .ok_or(ParseErrorType::MissingField("upos"))?;
-    let upos = placeholder_result(upos, str::parse::<UPOS>).transpose().map_err(|e| {
-        ParseErrorType::FailedUposParse { source: e, field: upos.to_string() }
-    })?;
+    let upos = placeholder_result(upos, str::parse::<UPOS>)
+        .transpose()
+        .map_err(|e| ParseErrorType::FailedUposParse {
+            source: e,
+            field: upos.to_string(),
+        })?;
 
     let xpos = fields_iter
         .next()
@@ -137,7 +146,10 @@ pub fn parse_token(line: &str) -> Result<Token, ParseErrorType> {
 }
 
 fn parse_int(input: &str) -> Result<usize, ParseIdError> {
-    let parsed = usize::from_str(input).map_err(|e| ParseIdError::FailedIntParsing { input: input.to_string(), source: e})?; 
+    let parsed = usize::from_str(input).map_err(|e| ParseIdError::FailedIntParsing {
+        input: input.to_string(),
+        source: e,
+    })?;
     Ok(parsed)
 }
 
@@ -151,32 +163,31 @@ fn parse_id(field: &str) -> Result<TokenID, ParseIdError> {
             .iter()
             .map(|s| parse_int(s))
             .collect::<Result<Vec<usize>, _>>();
-        
+
         let ids = ids?;
 
         if ids.len() != 2 {
-            return Err(ParseIdError::InvalidRange)
+            return Err(ParseIdError::InvalidRange);
         }
 
         return match sep {
             '-' => Ok(TokenID::Range(ids[0], ids[1])),
-            '.' => Ok(TokenID::Subordinate { major: ids[0], minor: ids[1] }),
-            _ => panic!()
-        }
+            '.' => Ok(TokenID::Subordinate {
+                major: ids[0],
+                minor: ids[1],
+            }),
+            _ => panic!(),
+        };
     }
 
     Ok(TokenID::Single(parse_int(field)?))
-
 }
 
 fn parse_key_value_pairs(field: &str) -> Result<HashMap<String, String>, ParseErrorType> {
     let kv_pairs: Vec<&str> = field.split('|').collect();
     let features: Result<Vec<(&str, &str)>, _> = kv_pairs
         .iter()
-        .map(|p| {
-            p.split_once('=')
-                .ok_or(ParseErrorType::KeyValueParseError)
-        })
+        .map(|p| p.split_once('=').ok_or(ParseErrorType::KeyValueParseError))
         .collect();
 
     let features: HashMap<String, String> = features?
@@ -191,18 +202,17 @@ fn parse_deps(field: &str) -> Result<Vec<Dep>, ParseErrorType> {
     let kv_pairs: Vec<&str> = field.split('|').collect();
     let deps: Result<Vec<(&str, &str)>, _> = kv_pairs
         .iter()
-        .map(|p| {
-            p.split_once(':')
-                .ok_or(ParseErrorType::KeyValueParseError)
-        })
+        .map(|p| p.split_once(':').ok_or(ParseErrorType::KeyValueParseError))
         .collect();
 
     let deps: Result<Vec<Dep>, ParseIdError> = deps?
         .iter()
-        .map(|t| Ok(Dep {
-            head: parse_id(t.0)?,
-            rel: String::from(t.1),
-        }))
+        .map(|t| {
+            Ok(Dep {
+                head: parse_id(t.0)?,
+                rel: String::from(t.1),
+            })
+        })
         .collect();
 
     Ok(deps?)
@@ -236,27 +246,24 @@ pub fn parse_sentence(input: &str) -> Result<Sentence, ConlluParseError> {
             continue;
         }
         if !line.is_empty() {
-            let token = parse_token(line).map_err(|e| ConlluParseError {
-                err: e,
-                line: i
-            })?;
+            let token = parse_token(line).map_err(|e| ConlluParseError { err: e, line: i })?;
             tokens.push(token);
         }
     }
-    Ok(Sentence {
-        meta,
-        tokens
-    })
+    Ok(Sentence { meta, tokens })
 }
 
 pub struct Doc<T: BufRead> {
     reader: T,
-    line_num: usize
+    line_num: usize,
 }
 
 impl<T: BufRead> Doc<T> {
     pub fn new(reader: T) -> Self {
-        Doc { reader, line_num: 0 }
+        Doc {
+            reader,
+            line_num: 0,
+        }
     }
 }
 
@@ -298,7 +305,7 @@ impl<T: BufRead> Iterator for Doc<T> {
             }
         }
         Some(parse_sentence(&buffer).map_err(|mut e| {
-            e.adjust_line(self.line_num-num_lines_in_buffer+1);
+            e.adjust_line(self.line_num - num_lines_in_buffer + 1);
             e
         }))
     }
@@ -324,7 +331,10 @@ mod test {
 
     #[test]
     fn can_parse_id_subordinate() {
-        assert_eq!(parse_id("5.6"), Ok(TokenID::Subordinate{major:5, minor:6}));
+        assert_eq!(
+            parse_id("5.6"),
+            Ok(TokenID::Subordinate { major: 5, minor: 6 })
+        );
     }
 
     #[test]

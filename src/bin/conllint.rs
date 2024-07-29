@@ -1,8 +1,7 @@
-use std::{fs::File};
+use std::fs::File;
 
 use clap::Parser;
 use rs_conllu::{cli, parse_file};
-
 
 fn main() {
     let cli = cli::LintCli::parse();
