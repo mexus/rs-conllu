@@ -9,7 +9,7 @@ use std::{
 };
 use thiserror::Error;
 
-#[derive(Error, PartialEq, Debug)]
+#[derive(Error, PartialEq, Debug, Eq)]
 pub enum ParseIdError {
     #[error("Range must be two integers separated by -")]
     InvalidRange,
@@ -20,7 +20,7 @@ pub enum ParseIdError {
     },
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseErrorType {
     #[error("Missing field: {0}")]
     MissingField(&'static str),
@@ -35,7 +35,7 @@ pub enum ParseErrorType {
     KeyValueParseError,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 #[error("Parse error in line {line}: {err}")]
 pub struct ConlluParseError {
     line: usize,
@@ -253,6 +253,37 @@ pub fn parse_sentence(input: &str) -> Result<Sentence, ConlluParseError> {
     Ok(Sentence { meta, tokens })
 }
 
+/// A `Doc` is a wrapper around a type that implements [BufRead] and produces
+/// lines in ConLL-U format that can be parsed into sentences, which
+/// can be accessed via iteration.
+///
+///  For the common use case of parsing a file in CoNLL-U format,
+///  this crate provides the convenience function [parse_file], which produces a `Doc<BufReader<File>>`.
+///
+/// ```rust
+/// use std::io::BufReader;
+/// use rs_conllu::{Sentence, Token, TokenID};
+/// use rs_conllu::parsers::Doc;
+///
+/// let conllu = "1\tSue\t_\t_\t_\t_\t_\t_\t_\t_
+/// 2\tlikes\t_\t_\t_\t_\t_\t_\t_\t_
+/// 3\tcoffee\t_\t_\t_\t_\t_\t_\t_\t_
+/// ".as_bytes();
+///
+/// let reader = BufReader::new(conllu);
+///
+/// let mut doc = Doc::new(reader);
+///
+/// assert_eq!(doc.next(), Some(Ok(Sentence {
+///     meta: vec![],
+///     tokens: vec![
+///         Token::builder(TokenID::Single(1), "Sue".to_string()).build(),
+///         Token::builder(TokenID::Single(2), "likes".to_string()).build(),
+///         Token::builder(TokenID::Single(3), "coffee".to_string()).build(),
+///     ]
+/// })));
+/// ```
+///
 pub struct Doc<T: BufRead> {
     reader: T,
     line_num: usize,
