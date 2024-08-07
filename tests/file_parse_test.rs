@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File};
 
-use rs_conllu::{parse_file, Dep, Token, TokenID, UPOS};
+use rs_conllu::{parse_file, token::Dep, token::Token, token::TokenID, UPOS};
 
 #[test]
 fn test_file_parse() {

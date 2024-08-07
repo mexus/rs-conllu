@@ -29,12 +29,15 @@
 
 #![allow(clippy::tabs_in_doc_comments)]
 
-use std::{collections::HashMap, error::Error, fmt, str::FromStr};
+use std::{error::Error, fmt, str::FromStr};
 
 pub mod cli;
 pub mod parsers;
+pub mod token;
 
-pub use crate::parsers::{parse_file, parse_sentence, parse_token};
+pub use token::{Dep, Token, TokenID};
+
+pub use parsers::{parse_file, parse_sentence, parse_token};
 
 pub struct Feature<'a>(pub &'a str, pub &'a str);
 
@@ -98,126 +101,6 @@ impl FromStr for UPOS {
             _ => Err(ParseUposError),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TokenID {
-    Single(usize),
-    Range(usize, usize),
-    Subordinate { major: usize, minor: usize },
-}
-
-type Features = HashMap<String, String>;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
-    pub id: TokenID,
-    pub form: String,
-    pub lemma: Option<String>,
-    pub upos: Option<UPOS>,
-    pub xpos: Option<String>,
-    pub features: Option<Features>,
-    pub head: Option<TokenID>,
-    pub deprel: Option<String>,
-    pub dep: Option<Vec<Dep>>,
-    pub misc: Option<String>,
-}
-
-impl Token {
-    pub fn builder(id: TokenID, form: String) -> TokenBuilder {
-        TokenBuilder::new(id, form)
-    }
-}
-
-pub struct TokenBuilder {
-    id: TokenID,
-    form: String,
-    lemma: Option<String>,
-    upos: Option<UPOS>,
-    xpos: Option<String>,
-    features: Option<Features>,
-    head: Option<TokenID>,
-    deprel: Option<String>,
-    dep: Option<Vec<Dep>>,
-    misc: Option<String>,
-}
-
-impl TokenBuilder {
-    pub fn new(id: TokenID, form: String) -> TokenBuilder {
-        TokenBuilder {
-            id,
-            form,
-            lemma: None,
-            upos: None,
-            xpos: None,
-            features: None,
-            head: None,
-            deprel: None,
-            dep: None,
-            misc: None,
-        }
-    }
-
-    pub fn lemma(mut self, lemma: String) -> TokenBuilder {
-        self.lemma = Some(lemma);
-        self
-    }
-
-    pub fn upos(mut self, upos: UPOS) -> TokenBuilder {
-        self.upos = Some(upos);
-        self
-    }
-
-    pub fn xpos(mut self, xpos: String) -> TokenBuilder {
-        self.xpos = Some(xpos);
-        self
-    }
-
-    pub fn features(mut self, features: Features) -> TokenBuilder {
-        self.features = Some(features);
-        self
-    }
-
-    pub fn head(mut self, head: TokenID) -> TokenBuilder {
-        self.head = Some(head);
-        self
-    }
-
-    pub fn deprel(mut self, deprel: String) -> TokenBuilder {
-        self.deprel = Some(deprel);
-        self
-    }
-
-    pub fn dep(mut self, dep: Vec<Dep>) -> TokenBuilder {
-        self.dep = Some(dep);
-        self
-    }
-
-    pub fn misc(mut self, misc: String) -> TokenBuilder {
-        self.misc = Some(misc);
-        self
-    }
-
-    pub fn build(self) -> Token {
-        Token {
-            id: self.id,
-            form: self.form,
-            lemma: self.lemma,
-            upos: self.upos,
-            xpos: self.xpos,
-            features: self.features,
-            head: self.head,
-            deprel: self.deprel,
-            dep: self.dep,
-            misc: self.misc,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Dep {
-    pub head: TokenID,
-    pub rel: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,4 +1,3 @@
-use crate::{Dep, ParseUposError, Sentence, Token, TokenID, UPOS};
 use std::{
     collections::HashMap,
     fs::File,
@@ -8,6 +7,11 @@ use std::{
     vec,
 };
 use thiserror::Error;
+
+use crate::{
+    token::{Dep, Token, TokenID},
+    ParseUposError, Sentence, UPOS,
+};
 
 #[derive(Error, PartialEq, Debug, Eq)]
 pub enum ParseIdError {
@@ -172,10 +176,7 @@ fn parse_id(field: &str) -> Result<TokenID, ParseIdError> {
 
         return match sep {
             '-' => Ok(TokenID::Range(ids[0], ids[1])),
-            '.' => Ok(TokenID::Subordinate {
-                major: ids[0],
-                minor: ids[1],
-            }),
+            '.' => Ok(TokenID::Empty(ids[0], ids[1])),
             _ => panic!(),
         };
     }
@@ -346,7 +347,7 @@ impl<T: BufRead> Iterator for Doc<T> {
 mod test {
     use std::collections::HashMap;
 
-    use crate::{Token, TokenID, UPOS};
+    use crate::{Token, UPOS};
 
     use super::*;
 
@@ -361,11 +362,8 @@ mod test {
     }
 
     #[test]
-    fn can_parse_id_subordinate() {
-        assert_eq!(
-            parse_id("5.6"),
-            Ok(TokenID::Subordinate { major: 5, minor: 6 })
-        );
+    fn can_parse_id_empty() {
+        assert_eq!(parse_id("5.6"), Ok(TokenID::Empty(5, 6)));
     }
 
     #[test]
