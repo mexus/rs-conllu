@@ -73,7 +73,7 @@ pub fn parse_file(file: File) -> Doc<BufReader<File>> {
 ///     features: None,
 ///     head: Some(TokenID::Single(3)),
 ///     deprel: Some("nmod".to_string()),
-///     dep: None,
+///     deps: None,
 ///     misc: None
 /// });
 /// ```
@@ -125,10 +125,10 @@ pub fn parse_token(line: &str) -> Result<Token, ParseErrorType> {
         .ok_or(ParseErrorType::MissingField("deprel"))?;
     let deprel = placeholder(deprel).map(String::from);
 
-    let dep = fields_iter
+    let deps = fields_iter
         .next()
         .ok_or(ParseErrorType::MissingField("deps"))?;
-    let dep = placeholder_result(dep, parse_deps).transpose()?;
+    let deps = placeholder_result(deps, parse_deps).transpose()?;
 
     let misc = fields_iter
         .next()
@@ -144,7 +144,7 @@ pub fn parse_token(line: &str) -> Result<Token, ParseErrorType> {
         features,
         head,
         deprel,
-        dep,
+        deps,
         misc,
     })
 }
@@ -387,7 +387,7 @@ mod test {
             features: Some(features),
             head: Some(TokenID::Single(3)),
             deprel: Some("det".to_string()),
-            dep: None,
+            deps: None,
             misc: None,
         };
 

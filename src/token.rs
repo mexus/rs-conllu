@@ -28,20 +28,30 @@ type Features = HashMap<String, String>;
 /// A [TokenBuilder] type is available for more convenient creation of [Token] structs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
+    /// The id of the token within the sentence.
     pub id: TokenID,
+    /// The surface form of the token as it appears in the sentence.
     pub form: String,
+    /// The lemma or lexical form of the token.
     pub lemma: Option<String>,
+    /// The universal POS tag of the token.
     pub upos: Option<UPOS>,
+    /// Language-specific POS tag for the token.
     pub xpos: Option<String>,
+    /// Morphological features of the token as key-value pairs.
     pub features: Option<Features>,
+    /// The head of the current token.
     pub head: Option<TokenID>,
+    /// The dependency relation fo the token.
     pub deprel: Option<String>,
-    pub dep: Option<Vec<Dep>>,
+    /// Enhanced dependency graph information.
+    pub deps: Option<Vec<Dep>>,
+    /// Other types of annotation.
     pub misc: Option<String>,
 }
 
 impl Token {
-    /// Return a new [TokenBuilder]
+    /// Return a new [TokenBuilder].
     pub fn builder(id: TokenID, form: String) -> TokenBuilder {
         TokenBuilder::new(id, form)
     }
@@ -67,7 +77,7 @@ pub struct TokenBuilder {
     features: Option<Features>,
     head: Option<TokenID>,
     deprel: Option<String>,
-    dep: Option<Vec<Dep>>,
+    deps: Option<Vec<Dep>>,
     misc: Option<String>,
 }
 
@@ -82,52 +92,60 @@ impl TokenBuilder {
             features: None,
             head: None,
             deprel: None,
-            dep: None,
+            deps: None,
             misc: None,
         }
     }
 
-    /// Set the lemma of the token.
+    /// Set the lemma field.
     pub fn lemma(mut self, lemma: String) -> TokenBuilder {
         self.lemma = Some(lemma);
         self
     }
 
+    /// Set the universal POS tag field.
     pub fn upos(mut self, upos: UPOS) -> TokenBuilder {
         self.upos = Some(upos);
         self
     }
 
+    /// Set the xpos field.
     pub fn xpos(mut self, xpos: String) -> TokenBuilder {
         self.xpos = Some(xpos);
         self
     }
 
+    /// Set the features field.
     pub fn features(mut self, features: Features) -> TokenBuilder {
         self.features = Some(features);
         self
     }
 
+    /// Set the head field.
     pub fn head(mut self, head: TokenID) -> TokenBuilder {
         self.head = Some(head);
         self
     }
 
+    /// Set the deprel field.
     pub fn deprel(mut self, deprel: String) -> TokenBuilder {
         self.deprel = Some(deprel);
         self
     }
 
-    pub fn dep(mut self, dep: Vec<Dep>) -> TokenBuilder {
-        self.dep = Some(dep);
+    /// Set the deps field.
+    pub fn deps(mut self, dep: Vec<Dep>) -> TokenBuilder {
+        self.deps = Some(dep);
         self
     }
 
+    /// Set the misc field.
     pub fn misc(mut self, misc: String) -> TokenBuilder {
         self.misc = Some(misc);
         self
     }
 
+    /// Build the token.
     pub fn build(self) -> Token {
         Token {
             id: self.id,
@@ -138,7 +156,7 @@ impl TokenBuilder {
             features: self.features,
             head: self.head,
             deprel: self.deprel,
-            dep: self.dep,
+            deps: self.deps,
             misc: self.misc,
         }
     }

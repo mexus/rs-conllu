@@ -26,7 +26,7 @@ fn test_file_parse() {
             ])),
             head: Some(TokenID::Single(2)),
             deprel: Some("nsubj".to_string()),
-            dep: Some(vec![
+            deps: Some(vec![
                 Dep {
                     head: TokenID::Single(2),
                     rel: "nsubj".to_string()
