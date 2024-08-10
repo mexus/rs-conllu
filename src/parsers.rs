@@ -1,4 +1,3 @@
-use crate::{Dep, ParseUposError, Sentence, Token, TokenID, UPOS};
 use std::{
     collections::HashMap,
     fs::File,
@@ -9,7 +8,12 @@ use std::{
 };
 use thiserror::Error;
 
-#[derive(Error, PartialEq, Debug)]
+use crate::{
+    token::{Dep, Token, TokenID},
+    ParseUposError, Sentence, UPOS,
+};
+
+#[derive(Error, PartialEq, Debug, Eq)]
 pub enum ParseIdError {
     #[error("Range must be two integers separated by -")]
     InvalidRange,
@@ -20,7 +24,7 @@ pub enum ParseIdError {
     },
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseErrorType {
     #[error("Missing field: {0}")]
     MissingField(&'static str),
@@ -35,7 +39,7 @@ pub enum ParseErrorType {
     KeyValueParseError,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 #[error("Parse error in line {line}: {err}")]
 pub struct ConlluParseError {
     line: usize,
@@ -69,7 +73,7 @@ pub fn parse_file(file: File) -> Doc<BufReader<File>> {
 ///     features: None,
 ///     head: Some(TokenID::Single(3)),
 ///     deprel: Some("nmod".to_string()),
-///     dep: None,
+///     deps: None,
 ///     misc: None
 /// });
 /// ```
@@ -121,10 +125,10 @@ pub fn parse_token(line: &str) -> Result<Token, ParseErrorType> {
         .ok_or(ParseErrorType::MissingField("deprel"))?;
     let deprel = placeholder(deprel).map(String::from);
 
-    let dep = fields_iter
+    let deps = fields_iter
         .next()
         .ok_or(ParseErrorType::MissingField("deps"))?;
-    let dep = placeholder_result(dep, parse_deps).transpose()?;
+    let deps = placeholder_result(deps, parse_deps).transpose()?;
 
     let misc = fields_iter
         .next()
@@ -140,7 +144,7 @@ pub fn parse_token(line: &str) -> Result<Token, ParseErrorType> {
         features,
         head,
         deprel,
-        dep,
+        deps,
         misc,
     })
 }
@@ -172,10 +176,7 @@ fn parse_id(field: &str) -> Result<TokenID, ParseIdError> {
 
         return match sep {
             '-' => Ok(TokenID::Range(ids[0], ids[1])),
-            '.' => Ok(TokenID::Subordinate {
-                major: ids[0],
-                minor: ids[1],
-            }),
+            '.' => Ok(TokenID::Empty(ids[0], ids[1])),
             _ => panic!(),
         };
     }
@@ -253,6 +254,37 @@ pub fn parse_sentence(input: &str) -> Result<Sentence, ConlluParseError> {
     Ok(Sentence { meta, tokens })
 }
 
+/// A `Doc` is a wrapper around a type that implements [BufRead] and produces
+/// lines in ConLL-U format that can be parsed into sentences, which
+/// can be accessed via iteration.
+///
+///  For the common use case of parsing a file in CoNLL-U format,
+///  this crate provides the convenience function [parse_file], which produces a `Doc<BufReader<File>>`.
+///
+/// ```rust
+/// use std::io::BufReader;
+/// use rs_conllu::{Sentence, Token, TokenID};
+/// use rs_conllu::parsers::Doc;
+///
+/// let conllu = "1\tSue\t_\t_\t_\t_\t_\t_\t_\t_
+/// 2\tlikes\t_\t_\t_\t_\t_\t_\t_\t_
+/// 3\tcoffee\t_\t_\t_\t_\t_\t_\t_\t_
+/// ".as_bytes();
+///
+/// let reader = BufReader::new(conllu);
+///
+/// let mut doc = Doc::new(reader);
+///
+/// assert_eq!(doc.next(), Some(Ok(Sentence {
+///     meta: vec![],
+///     tokens: vec![
+///         Token::builder(TokenID::Single(1), "Sue".to_string()).build(),
+///         Token::builder(TokenID::Single(2), "likes".to_string()).build(),
+///         Token::builder(TokenID::Single(3), "coffee".to_string()).build(),
+///     ]
+/// })));
+/// ```
+///
 pub struct Doc<T: BufRead> {
     reader: T,
     line_num: usize,
@@ -315,7 +347,7 @@ impl<T: BufRead> Iterator for Doc<T> {
 mod test {
     use std::collections::HashMap;
 
-    use crate::{Token, TokenID, UPOS};
+    use crate::{Token, UPOS};
 
     use super::*;
 
@@ -330,11 +362,8 @@ mod test {
     }
 
     #[test]
-    fn can_parse_id_subordinate() {
-        assert_eq!(
-            parse_id("5.6"),
-            Ok(TokenID::Subordinate { major: 5, minor: 6 })
-        );
+    fn can_parse_id_empty() {
+        assert_eq!(parse_id("5.6"), Ok(TokenID::Empty(5, 6)));
     }
 
     #[test]
@@ -358,7 +387,7 @@ mod test {
             features: Some(features),
             head: Some(TokenID::Single(3)),
             deprel: Some("det".to_string()),
-            dep: None,
+            deps: None,
             misc: None,
         };
 

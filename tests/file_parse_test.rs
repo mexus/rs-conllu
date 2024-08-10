@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File};
 
-use rs_conllu::{parse_file, Dep, Token, TokenID, UPOS};
+use rs_conllu::{parse_file, token::Dep, token::Token, token::TokenID, UPOS};
 
 #[test]
 fn test_file_parse() {
@@ -26,7 +26,7 @@ fn test_file_parse() {
             ])),
             head: Some(TokenID::Single(2)),
             deprel: Some("nsubj".to_string()),
-            dep: Some(vec![
+            deps: Some(vec![
                 Dep {
                     head: TokenID::Single(2),
                     rel: "nsubj".to_string()

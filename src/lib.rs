@@ -29,16 +29,19 @@
 
 #![allow(clippy::tabs_in_doc_comments)]
 
-use std::{collections::HashMap, error::Error, fmt, str::FromStr};
+use std::{error::Error, fmt, str::FromStr};
 
 pub mod cli;
 pub mod parsers;
+pub mod token;
 
-pub use crate::parsers::{parse_file, parse_sentence, parse_token};
+pub use token::{Dep, Token, TokenID};
+
+pub use parsers::{parse_file, parse_sentence, parse_token};
 
 pub struct Feature<'a>(pub &'a str, pub &'a str);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ParseUposError;
 
 impl fmt::Display for ParseUposError {
@@ -100,36 +103,7 @@ impl FromStr for UPOS {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TokenID {
-    Single(usize),
-    Range(usize, usize),
-    Subordinate { major: usize, minor: usize },
-}
-
-type Features = HashMap<String, String>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Token {
-    pub id: TokenID,
-    pub form: String,
-    pub lemma: Option<String>,
-    pub upos: Option<UPOS>,
-    pub xpos: Option<String>,
-    pub features: Option<Features>,
-    pub head: Option<TokenID>,
-    pub deprel: Option<String>,
-    pub dep: Option<Vec<Dep>>,
-    pub misc: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Dep {
-    pub head: TokenID,
-    pub rel: String,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sentence {
     pub meta: Vec<String>,
     pub tokens: Vec<Token>,
