@@ -18,14 +18,16 @@ pub enum TokenID {
 type Features = HashMap<String, String>;
 
 /// A `Token` is the basic unit of what is defined on a (non-comment) line in CoNLL-U format.
-/// The ConLL-U specification uses the terms "word", "node" and "multi-word token" while this crate
-/// decided to use the general notion of "Token" to subsume all of the above.
+/// The ConLL-U specification uses the terms _word_, _node_ and _multi-word token_ while this crate
+/// decided to use the general notion of _Token_ to subsume all of the above.
 ///
 /// The fields of a `Token` are the ten fields that are defined in the CoNLL-U specification.
-/// The only mandatory fields are [Token::id] and [Token::form]. The remaining ones are optional (absence denoted
+/// The only mandatory fields are [id](Token::id) and [form](Token::form). The remaining ones are optional (absence denoted
 /// by an underscore in the text format) and represented as [Option] types.
 ///
-/// A [TokenBuilder] type is available for more convenient creation of [Token] structs.
+/// A [TokenBuilder] type is available for more convenient creation of [Token] structs,
+/// which can be instantiated via the [builder](Token::builder) method.
+///
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     /// The id of the token within the sentence.
@@ -82,6 +84,8 @@ pub struct TokenBuilder {
 }
 
 impl TokenBuilder {
+    /// Contstructor for [TokenBuilder]. Both `id` and `form` are mandatory
+    /// fields and thus required when instantiating.
     pub fn new(id: TokenID, form: String) -> TokenBuilder {
         TokenBuilder {
             id,
@@ -164,6 +168,8 @@ impl TokenBuilder {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dep {
+    /// The head of the relation.
     pub head: TokenID,
+    /// The type of the relation.
     pub rel: String,
 }
